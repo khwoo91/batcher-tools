@@ -56,6 +56,15 @@ export class SettingsPanel extends LitElement {
     }));
   }
 
+  private handleSuffixInput(scale: number, e: Event) {
+    const target = e.target as HTMLInputElement;
+    this.dispatchEvent(new CustomEvent('change-suffix', {
+      detail: { scale, suffix: target.value },
+      bubbles: true,
+      composed: true
+    }));
+  }
+
   private handleToggleDelete() {
     this.dispatchEvent(new CustomEvent('toggle-delete', {
       bubbles: true,
@@ -185,27 +194,39 @@ export class SettingsPanel extends LitElement {
             <!-- Single scale selection like radio button (Up to 2x) -->
             <div>
               <label class="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">출력 이미지 배율 설정 (단일 선택)</label>
-              <div class="space-y-2">
+              <div class="space-y-3">
                 ${this.scaleOptions.map((item) => html`
-                  <button 
-                    @click="${() => this.handleChangeScale(item.scale)}"
-                    ?disabled="${this.isConverting}"
-                    class="w-full p-3.5 rounded-xl border text-left transition-all flex items-center justify-between font-sans ${
-                      this.selectedScale === item.scale 
-                      ? 'bg-indigo-950/40 border-indigo-500 text-white font-semibold' 
-                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
-                    }"
-                  >
-                    <span class="text-sm font-semibold">${item.label}</span>
-                    <div class="flex items-center gap-2">
-                      <span class="text-xs font-mono text-indigo-400">${item.suffix ? `접미사: ${item.suffix}` : '접미사 없음'}</span>
+                  <div class="flex items-center gap-2">
+                    <button 
+                      @click="${() => this.handleChangeScale(item.scale)}"
+                      ?disabled="${this.isConverting}"
+                      class="flex-1 p-3.5 rounded-xl border text-left transition-all flex items-center justify-between font-sans ${
+                        this.selectedScale === item.scale 
+                        ? 'bg-indigo-950/40 border-indigo-500 text-white font-semibold' 
+                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                      }"
+                    >
+                      <span class="text-sm font-semibold">${item.label}</span>
                       <div class="w-4 h-4 rounded-full border-2 flex items-center justify-center ${
                         this.selectedScale === item.scale ? 'border-indigo-500' : 'border-slate-700'
                       }">
                         ${this.selectedScale === item.scale ? html`<div class="w-2 h-2 rounded-full bg-indigo-500"></div>` : ''}
                       </div>
+                    </button>
+                    
+                    <div class="w-28 flex-shrink-0 flex flex-col gap-1">
+                      <span class="text-[9px] text-slate-500 uppercase tracking-wider pl-1 font-sans">접미사</span>
+                      <input 
+                        type="text" 
+                        .value="${item.suffix}"
+                        @input="${(e: Event) => this.handleSuffixInput(item.scale, e)}"
+                        ?disabled="${this.isConverting}"
+                        placeholder="접미사 없음"
+                        class="w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-200 text-xs focus:outline-none focus:border-indigo-500 transition-colors font-mono"
+                        title="배율 적용 시 파일명 끝에 붙을 접미사"
+                      />
                     </div>
-                  </button>
+                  </div>
                 `)}
               </div>
             </div>
@@ -224,11 +245,11 @@ export class SettingsPanel extends LitElement {
                   .value="${this.outputSubFolderName}" 
                   @input="${this.handleSubfolderChange}"
                   ?disabled="${this.isConverting}"
-                  placeholder="converted_images" 
-                  class="w-full pl-6 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-200 text-sm focus:outline-none focus:border-indigo-500 transition-colors"
+                  placeholder="(지정하지 않으면 원본 위치에 직접 저장)" 
+                  class="w-full pl-6 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-200 text-sm focus:outline-none focus:border-indigo-500 transition-colors font-sans"
                 />
               </div>
-              <p class="text-[11px] text-slate-500 mt-1">로컬 드라이브 폴더 안에 해당 폴더가 생성되며 결과물들이 모이게 됩니다.</p>
+              <p class="text-[11px] text-slate-500 mt-1">지정한 하위 폴더 안에 결과물이 모이게 됩니다. 비워둘 경우 원본 SVG 파일이 있는 동일한 경로에 직접 저장됩니다.</p>
             </div>
 
             <div class="border-t border-slate-800 my-4"></div>

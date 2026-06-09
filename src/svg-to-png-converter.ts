@@ -30,7 +30,7 @@ export class SvgToPngConverter extends LitElement {
   @state() private showModal = false;
   @state() private modalType: 'info' | 'success' | 'error' = 'info';
 
-  private scaleOptions: ScaleOption[] = [
+  @state() private scaleOptions: ScaleOption[] = [
     { scale: 1, label: '1.0x (기본 배율)', suffix: '' },
     { scale: 1.5, label: '1.5x (중간 배율)', suffix: '@1.5x' },
     { scale: 2, label: '2.0x (고해상도)', suffix: '@2x' }
@@ -49,6 +49,23 @@ export class SvgToPngConverter extends LitElement {
   private addLog(text: string, type: 'info' | 'success' | 'error' | 'warning' = 'info') {
     const timestamp = new Date().toLocaleTimeString();
     this.conversionLogs = [{ timestamp, text, type }, ...this.conversionLogs];
+  }
+
+  private async getNestedDirHandle(rootHandle: FileSystemDirectoryHandle, relativePath: string): Promise<FileSystemDirectoryHandle> {
+    const parts = relativePath.split('/').filter(Boolean);
+    parts.pop(); // Remove filename
+    
+    let currentHandle = rootHandle;
+    for (const part of parts) {
+      currentHandle = await currentHandle.getDirectoryHandle(part, { create: true });
+    }
+    return currentHandle;
+  }
+
+  private handleChangeSuffix(scale: number, suffix: string) {
+    this.scaleOptions = this.scaleOptions.map(opt =>
+      opt.scale === scale ? { ...opt, suffix } : opt
+    );
   }
 
   private async selectFolder() {
@@ -151,14 +168,21 @@ export class SvgToPngConverter extends LitElement {
     let outputDirHandle: FileSystemDirectoryHandle | null = null;
     let zip: JSZip | null = null;
 
-    if (this.apiSupported && this.dirHandle && !this.useFallback) {
+    const isLocalDirMode = this.apiSupported && this.dirHandle && !this.useFallback;
+    const hasSubFolder = this.outputSubFolderName.trim() !== '';
+
+    if (isLocalDirMode && this.dirHandle) {
       try {
         const opts = { mode: 'readwrite' as const };
         if ((await this.dirHandle.queryPermission(opts)) !== 'granted') {
           await this.dirHandle.requestPermission(opts);
         }
-        outputDirHandle = await this.dirHandle.getDirectoryHandle(this.outputSubFolderName || 'converted_images', { create: true });
-        this.addLog(`로컬 출력 폴더가 준비되었습니다: /${this.outputSubFolderName}`, 'success');
+        if (hasSubFolder) {
+          outputDirHandle = await this.dirHandle.getDirectoryHandle(this.outputSubFolderName, { create: true });
+          this.addLog(`로컬 출력 폴더가 준비되었습니다: /${this.outputSubFolderName}`, 'success');
+        } else {
+          this.addLog(`출력 하위 폴더가 지정되지 않아 원본 SVG 파일 경로에 직접 변환 파일을 생성합니다.`, 'info');
+        }
       } catch (err) {
         console.error('로컬 디렉토리 권한 문제, ZIP 다운로드 방식으로 선회합니다.', err);
         this.addLog('로컬 폴더 생성 실패. 브라우저 제한으로 인해 ZIP 보관함으로 변환 후 다운로드로 대체 진행합니다.', 'warning');
@@ -184,25 +208,43 @@ export class SvgToPngConverter extends LitElement {
         try {
           const imageBlob = await convertSvgToImage(text, width, height, scaleObj.scale, this.exportFormat);
 
-          if (outputDirHandle) {
-            const fileHandle = await outputDirHandle.getFileHandle(outputFileName, { create: true });
+          if (isLocalDirMode && this.dirHandle) {
+            let targetDirHandle: FileSystemDirectoryHandle;
+            if (hasSubFolder && outputDirHandle) {
+              targetDirHandle = outputDirHandle;
+            } else {
+              targetDirHandle = await this.getNestedDirHandle(this.dirHandle, svgItem.relativePath);
+            }
+            const fileHandle = await targetDirHandle.getFileHandle(outputFileName, { create: true });
             const writable = await fileHandle.createWritable();
             await writable.write(imageBlob);
             await writable.close();
           } else if (zip) {
-            const zipFolderPath = this.outputSubFolderName || 'converted_images';
-            zip.folder(zipFolderPath)?.file(outputFileName, imageBlob);
+            if (hasSubFolder) {
+              const zipFolderPath = this.outputSubFolderName || 'converted_images';
+              zip.folder(zipFolderPath)?.file(outputFileName, imageBlob);
+            } else {
+              const relativeParts = svgItem.relativePath.split('/');
+              relativeParts.pop(); // Remove filename
+              const zipPath = relativeParts.join('/');
+              if (zipPath) {
+                zip.folder(zipPath)?.file(outputFileName, imageBlob);
+              } else {
+                zip.file(outputFileName, imageBlob);
+              }
+            }
           }
 
           successCount++;
-          this.addLog(`성공: ${svgItem.name} → ${outputFileName} (${Math.round(width * scaleObj.scale)}x${Math.round(height * scaleObj.scale)} px)`, 'success');
+          this.addLog(`성공: ${svgItem.relativePath} → ${outputFileName} (${Math.round(width * scaleObj.scale)}x${Math.round(height * scaleObj.scale)} px)`, 'success');
 
-          if (this.deleteOriginal && outputDirHandle && this.dirHandle) {
+          if (this.deleteOriginal && this.dirHandle) {
             try {
-              await this.dirHandle.removeEntry(svgItem.name);
-              this.addLog(`원본 제거 완료: ${svgItem.name}`, 'info');
+              const targetDirHandle = await this.getNestedDirHandle(this.dirHandle, svgItem.relativePath);
+              await targetDirHandle.removeEntry(svgItem.name);
+              this.addLog(`원본 제거 완료: ${svgItem.relativePath}`, 'info');
             } catch (delErr: any) {
-              this.addLog(`원본 제거 실패: ${svgItem.name} (${delErr.message})`, 'warning');
+              this.addLog(`원본 제거 실패: ${svgItem.relativePath} (${delErr.message})`, 'warning');
             }
           }
 
@@ -211,13 +253,13 @@ export class SvgToPngConverter extends LitElement {
           failCount++;
           svgItem.status = 'error';
           svgItem.errorMsg = scaleErr.message;
-          this.addLog(`실패: ${svgItem.name} - ${scaleErr.message}`, 'error');
+          this.addLog(`실패: ${svgItem.relativePath} - ${scaleErr.message}`, 'error');
         }
 
       } catch (fileErr: any) {
         svgItem.status = 'error';
         svgItem.errorMsg = fileErr.message;
-        this.addLog(`구조적 파싱 에러: ${svgItem.name} - ${fileErr.message}`, 'error');
+        this.addLog(`구조적 파싱 에러: ${svgItem.relativePath} - ${fileErr.message}`, 'error');
         failCount++;
       }
 
@@ -238,7 +280,7 @@ export class SvgToPngConverter extends LitElement {
         link.click();
         document.body.removeChild(link);
         
-        this.addLog(`압축 파일 다운로드 완료: ${this.outputSubFolderName}.zip`, 'success');
+        this.addLog(`압축 파일 다운로드 완료: ${this.outputSubFolderName || 'converted_images'}.zip`, 'success');
       } catch (zipErr: any) {
         this.addLog(`ZIP 다운로드 압축 파일 빌드 실패: ${zipErr.message}`, 'error');
       }
@@ -248,11 +290,16 @@ export class SvgToPngConverter extends LitElement {
     this.addLog(`변환이 종료되었습니다. (성공: ${successCount}건, 실패: ${failCount}건)`, successCount > 0 ? 'success' : 'error');
     
     if (successCount > 0) {
-      let destinationText = outputDirHandle 
-        ? `선택한 로컬 폴더 내의 '/${this.outputSubFolderName}' 경로에 직접 개별 이미지들이 저장되었습니다.` 
-        : `브라우저 제약(Safari/Firefox 등)으로 인해 이미지들이 가상 폴더가 포함된 ZIP 다운로드로 제공되었습니다.`;
+      let destinationText = '';
+      if (isLocalDirMode) {
+        destinationText = hasSubFolder 
+          ? `선택한 로컬 폴더 내의 '/${this.outputSubFolderName}' 경로에 직접 개별 이미지들이 저장되었습니다.`
+          : `선택한 로컬 폴더 내의 각 SVG 파일 위치에 직접 변환 이미지 파일들이 개별 저장되었습니다.`;
+      } else {
+        destinationText = `브라우저 제약(Safari/Firefox 등)으로 인해 이미지들이 가상 폴더 구조를 포함한 ZIP 다운로드로 제공되었습니다.`;
+      }
       
-      if (this.deleteOriginal && !outputDirHandle) {
+      if (this.deleteOriginal && !isLocalDirMode) {
         destinationText += `\n\n(참고: 원본 파일 자동 삭제 기능은 파일 쓰기 API 권한이 제공되는 최신 브라우저 기반의 "로컬 디렉토리 지정" 환경에서만 동작합니다.)`;
       }
 
@@ -312,6 +359,7 @@ export class SvgToPngConverter extends LitElement {
               @change-format="${(e: CustomEvent<'png' | 'jpg'>) => this.exportFormat = e.detail}"
               @change-scale="${(e: CustomEvent<number>) => this.selectedScale = e.detail}"
               @change-subfolder="${(e: CustomEvent<string>) => this.outputSubFolderName = e.detail.replace(/[^a-zA-Z0-9_\-]/g, '')}"
+              @change-suffix="${(e: CustomEvent<{ scale: number; suffix: string }>) => this.handleChangeSuffix(e.detail.scale, e.detail.suffix)}"
               @toggle-delete="${() => this.deleteOriginal = !this.deleteOriginal}"
               @start-conversion="${this.startConversion}"
             ></settings-panel>
