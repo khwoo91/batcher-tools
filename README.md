@@ -1,0 +1,75 @@
+# SVG to PNG/JPG Batch Exporter 🖼️
+
+Vite, Lit, TypeScript, 그리고 Tailwind CSS를 기반으로 제작된 대용량 SVG 이미지 로컬 배치(Batch) 변환기입니다. 브라우저의 최신 File System Access API를 활용하여 로컬 폴더의 SVG 파일들을 원하는 배율과 포맷(PNG/JPG)으로 직접 변환하여 내보내거나, 미지원 브라우저의 경우 가상 ZIP 압축을 통해 일괄 다운로드해 드립니다.
+
+---
+
+## 주요 기능 (Key Features)
+
+- **1. 로컬 디렉토리(폴더) 지정 스트리밍**
+  - 최신 브라우저의 **File System Access API**를 사용하여 로컬 폴더 안의 모든 SVG 파일을 자동으로 탐색하고 로드합니다.
+  - 크롬/에지 등 미지원 환경이나 기타 브라우저를 위해 **웹킷 디렉토리 업로드 기반의 Fallback** 기능을 완벽히 탑재하고 있습니다.
+- **2. 다중 내보내기 포맷 지원**
+  - **PNG:** 투명도를 지원하는 무손실 압축 포맷.
+  - **JPG:** 알파 채널(투명 영역)에 자동으로 흰색 배경을 채워 깔끔하게 변환하는 무손실 JPEG 압축 포맷.
+- **3. 배율 설정 및 접미사 자동 적용**
+  - 단일 이미지 배율 설정(1.0x, 1.5x, 2.0x)을 선택할 수 있으며, 고해상도 변환 시 파일명 뒤에 접미사(예: `@2x`)가 자동으로 추가되어 편리합니다.
+- **4. 원본 SVG 파일 자동 정리 (Experimental)**
+  - 변환 프로세스가 성공적으로 완료되면 기존 로컬 디렉토리 내의 원본 `.svg` 파일을 자동으로 삭제하는 원본 정리 모드를 지원합니다. (로컬 디렉토리 연동 모드에서만 유효)
+- **5. 트랜잭션 실시간 모니터링**
+  - 파일 큐 대기열에서 개별 파일들의 진행률(대기 중, 렌더링 중, 완료됨, 에러)을 시각적으로 확인하고, 상세 작업 이력을 터미널 콘솔 로그 뷰어로 볼 수 있습니다.
+
+---
+
+## 설치 및 실행 방법 (Quick Start)
+
+### 1. 패키지 설치
+```bash
+npm install
+```
+
+### 2. 로컬 개발 서버 시작 (Vite)
+```bash
+npm run dev
+```
+
+### 3. 프로덕션 빌드
+```bash
+npm run build
+```
+
+---
+
+## 프로젝트 폴더 구조 (Project Structure)
+
+프로젝트는 모듈화 및 확장성을 극대화하기 위해 다음과 같이 비즈니스 로직, 타입 정의, UI 서브 컴포넌트로 구조적으로 분리되어 설계되었습니다:
+
+```
+src/
+├── types/
+│   └── index.ts                 # 공통 모델 타입 정의 (SvgFile, ScaleOption, ConversionLog)
+├── utils/
+│   └── svg-utils.ts             # SVG 수치 추출 및 Canvas 래스터라이제이션 (순수 비즈니스 로직)
+├── components/
+│   ├── alert-modal.ts           # 공용 모달 레이어 컴포넌트 (<alert-modal>)
+│   ├── app-header.ts            # 로고 및 상단 헤더, 초기화 제어 (<app-header>)
+│   ├── settings-panel.ts        # 옵션 커스텀 카드 및 폴더 지정/변환 트리거 (<settings-panel>)
+│   ├── file-queue.ts            # 대기열 및 진행 상태 모니터 뷰 (<file-queue>)
+│   └── log-console.ts           # 실시간 터미널 형태 로그 뷰어 (<log-console>)
+├── index.css                    # 프리미엄 폰트(Inter/Outfit) 및 다크 스크롤바 스타일링
+└── svg-to-png-converter.ts      # 상태 조율 및 파일 변환 루프를 제어하는 메인 컨트롤러 (<svg-to-png-converter>)
+```
+
+### 아키텍처 및 디자인 세부사항 (Architecture Highlights)
+- **단일 상태 조율 (Single Source of Truth):** 상태의 파편화를 방지하기 위해 모든 리액티브 상태는 최상위 컴포넌트([svg-to-png-converter.ts](./src/svg-to-png-converter.ts))에서 관리하며, 하위 컴포넌트들은 프로퍼티 수신 및 커스텀 이벤트 버블링(`CustomEvent`)을 활용해 단방향으로 통신합니다.
+- **순수 로직의 격리:** 파일 입출력 및 Canvas 그리기를 분리하여 [svg-utils.ts](./src/utils/svg-utils.ts)에 순수 헬퍼 함수로 담아 향후 단위 테스트 작성이 용이합니다.
+- **Tailwind CSS Light DOM 렌더링:** `createRenderRoot() { return this; }` 구조를 통해 Shadow DOM을 우회하고 라이트 돔에서 스타일을 렌더링하므로, Tailwind의 전역 스타일링과 유틸리티 클래스가 완벽하게 녹아듭니다.
+
+---
+
+## 기술 스택 (Tech Stack)
+- **Framework:** [Lit](https://lit.dev/) (v3)
+- **Bundler:** [Vite](https://vite.dev/)
+- **Language:** [TypeScript](https://www.typescriptlang.org/)
+- **Styles:** [Tailwind CSS](https://tailwindcss.com/)
+- **Zip Compression:** [JSZip](https://stuk.github.io/jszip/)

@@ -1,5 +1,5 @@
 {
-  "name": "my-lit-app",
+  "name": "svg-to-batch-exporter",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -9,9 +9,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "jszip": "^3.10.1",
     "lit": "^3.3.2"
   },
   "devDependencies": {
+    "@types/wicg-file-system-access": "^2023.10.7",
     "typescript": "~6.0.2",
     "vite": "^8.0.12"
   }
