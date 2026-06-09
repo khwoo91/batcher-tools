@@ -19,7 +19,7 @@ export class SvgToPngConverter extends LitElement {
   @state() private selectedScale = 1;
   @state() private exportFormat: 'png' | 'jpg' = 'png';
   @state() private deleteOriginal = false;
-  @state() private outputSubFolderName = 'converted_images';
+  @state() private outputSubFolderName = '';
   @state() private isConverting = false;
   @state() private conversionProgress = 0;
   @state() private conversionLogs: ConversionLog[] = [];
@@ -416,7 +416,7 @@ export class SvgToPngConverter extends LitElement {
           <button 
             @click="${this.startConversion}" 
             ?disabled="${this.isConverting || this.svgFiles.length === 0}"
-            class="w-full md:w-auto px-10 py-3.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-600 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-indigo-500/20 active:scale-[0.98] text-white font-bold rounded-xl transition-all flex items-center justify-center gap-3 cursor-pointer shadow-md font-sans text-sm shrink-0"
+            class="w-full md:w-auto px-10 py-3.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-600 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-indigo-500/20 active:scale-[0.98] text-white font-bold rounded-md transition-all flex items-center justify-center gap-3 cursor-pointer shadow-md font-sans text-sm shrink-0"
           >
             ${this.isConverting ? html`
               <svg class="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
