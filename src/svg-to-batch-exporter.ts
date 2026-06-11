@@ -12,16 +12,17 @@ import "./components/file-queue";
 import "./components/log-console";
 import "./components/alert-modal";
 
-@customElement("svg-to-png-converter")
-export class SvgToPngConverter extends LitElement {
+@customElement("svg-to-batch-exporter")
+export class SvgToBatchExporter extends LitElement {
   @state() private dirHandle: FileSystemDirectoryHandle | null = null;
   @state() private svgFiles: SvgFile[] = [];
   @state() private selectedScale = 1;
   @state() private exportFormat: "png" | "jpg" = "png";
   @state() private deleteOriginal = false;
-  @state() private outputSubFolderName = "";
+  @state() private outputDirHandle: FileSystemDirectoryHandle | null = null;
   @state() private isConverting = false;
   @state() private conversionProgress = 0;
+  @state() private currentConversionIndex = 0;
   @state() private conversionLogs: ConversionLog[] = [];
   @state() private apiSupported: boolean = "showDirectoryPicker" in window;
   @state() private useFallback: boolean = !("showDirectoryPicker" in window);
@@ -97,7 +98,9 @@ export class SvgToPngConverter extends LitElement {
       this.conversionLogs = [];
       this.conversionProgress = 0;
 
-      await this.scanDirectory(this.dirHandle);
+      const files: SvgFile[] = [];
+      await this.scanDirectory(this.dirHandle, "", files);
+      this.svgFiles = files;
 
       if (this.svgFiles.length === 0) {
         this.showAlert(
@@ -120,24 +123,60 @@ export class SvgToPngConverter extends LitElement {
     }
   }
 
-  private async scanDirectory(dirHandle: FileSystemDirectoryHandle, path = "") {
+  private async selectOutputFolder() {
+    if (!this.apiSupported) {
+      this.showAlert(
+        "이 브라우저는 폴더 직접 선택 API를 지원하지 않습니다. ZIP 다운로드 방식을 사용합니다.",
+        "info",
+      );
+      return;
+    }
+
+    try {
+      this.outputDirHandle = await window.showDirectoryPicker({
+        mode: "readwrite",
+      });
+      this.addLog(`출력 폴더가 지정되었습니다: ${this.outputDirHandle.name}`, "info");
+    } catch (err: any) {
+      if (err.name !== "AbortError") {
+        console.error(err);
+        this.showAlert(
+          `폴더 접근 권한을 획득하지 못했습니다: ${err.message}`,
+          "error",
+        );
+      }
+    }
+  }
+
+  private async scanDirectory(
+    dirHandle: FileSystemDirectoryHandle,
+    path = "",
+    fileAccumulator: SvgFile[] = [],
+  ): Promise<void> {
     for await (const entry of dirHandle.values()) {
       if (entry.kind === "file" && entry.name.toLowerCase().endsWith(".svg")) {
         const file = await (entry as FileSystemFileHandle).getFile();
-        this.svgFiles = [
-          ...this.svgFiles,
-          {
-            name: entry.name,
-            file: file,
-            relativePath: path ? `${path}/${entry.name}` : entry.name,
-            status: "pending",
-          },
-        ];
+        fileAccumulator.push({
+          name: entry.name,
+          file: file,
+          relativePath: path ? `${path}/${entry.name}` : entry.name,
+          status: "pending",
+          selected: true,
+        });
       } else if (entry.kind === "directory") {
-        if (entry.name !== this.outputSubFolderName) {
+        let isOutputDir = false;
+        if (this.outputDirHandle) {
+          try {
+            isOutputDir = await this.outputDirHandle.isSameEntry(entry);
+          } catch (e) {
+            isOutputDir = entry.name === this.outputDirHandle.name;
+          }
+        }
+        if (!isOutputDir) {
           await this.scanDirectory(
             entry as FileSystemDirectoryHandle,
             path ? `${path}/${entry.name}` : entry.name,
+            fileAccumulator,
           );
         }
       }
@@ -153,20 +192,20 @@ export class SvgToPngConverter extends LitElement {
     this.conversionLogs = [];
     this.conversionProgress = 0;
 
+    const filesList: SvgFile[] = [];
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       if (file.name.toLowerCase().endsWith(".svg")) {
-        this.svgFiles = [
-          ...this.svgFiles,
-          {
-            name: file.name,
-            file: file,
-            relativePath: file.webkitRelativePath || file.name,
-            status: "pending",
-          },
-        ];
+        filesList.push({
+          name: file.name,
+          file: file,
+          relativePath: file.webkitRelativePath || file.name,
+          status: "pending",
+          selected: true,
+        });
       }
     }
+    this.svgFiles = filesList;
 
     if (this.svgFiles.length === 0) {
       this.showAlert(
@@ -189,6 +228,15 @@ export class SvgToPngConverter extends LitElement {
       return;
     }
 
+    const selectedFiles = this.svgFiles.filter((f) => f.selected);
+    if (selectedFiles.length === 0) {
+      this.showAlert(
+        "선택된 SVG 파일이 없습니다. 변환할 파일을 한 개 이상 선택해 주세요.",
+        "error",
+      );
+      return;
+    }
+
     const scaleObj = this.scaleOptions.find(
       (s) => s.scale === this.selectedScale,
     );
@@ -199,6 +247,7 @@ export class SvgToPngConverter extends LitElement {
 
     this.isConverting = true;
     this.conversionProgress = 0;
+    this.currentConversionIndex = 0;
     this.addLog(
       `변환 프로세스를 시작합니다... [포맷: ${this.exportFormat.toUpperCase()}, 배율: ${scaleObj.scale}x]`,
       "info",
@@ -206,15 +255,14 @@ export class SvgToPngConverter extends LitElement {
 
     let successCount = 0;
     let failCount = 0;
-    const totalSteps = this.svgFiles.length;
+    const totalSteps = selectedFiles.length;
     let currentStep = 0;
 
-    let outputDirHandle: FileSystemDirectoryHandle | null = null;
     let zip: JSZip | null = null;
 
     const isLocalDirMode =
       this.apiSupported && this.dirHandle && !this.useFallback;
-    const hasSubFolder = this.outputSubFolderName.trim() !== "";
+    const hasOutputDir = this.outputDirHandle !== null;
 
     if (isLocalDirMode && this.dirHandle) {
       try {
@@ -222,18 +270,17 @@ export class SvgToPngConverter extends LitElement {
         if ((await this.dirHandle.queryPermission(opts)) !== "granted") {
           await this.dirHandle.requestPermission(opts);
         }
-        if (hasSubFolder) {
-          outputDirHandle = await this.dirHandle.getDirectoryHandle(
-            this.outputSubFolderName,
-            { create: true },
-          );
+        if (hasOutputDir && this.outputDirHandle) {
+          if ((await this.outputDirHandle.queryPermission(opts)) !== "granted") {
+            await this.outputDirHandle.requestPermission(opts);
+          }
           this.addLog(
-            `로컬 출력 폴더가 준비되었습니다: /${this.outputSubFolderName}`,
+            `로컬 출력 폴더가 준비되었습니다: ${this.outputDirHandle.name}`,
             "success",
           );
         } else {
           this.addLog(
-            `출력 하위 폴더가 지정되지 않아 원본 SVG 파일 경로에 직접 변환 파일을 생성합니다.`,
+            `출력 폴더가 지정되지 않아 원본 SVG 파일 경로에 직접 변환 파일을 생성합니다.`,
             "info",
           );
         }
@@ -243,7 +290,7 @@ export class SvgToPngConverter extends LitElement {
           err,
         );
         this.addLog(
-          "로컬 폴더 생성 실패. 브라우저 제한으로 인해 ZIP 보관함으로 변환 후 다운로드로 대체 진행합니다.",
+          "로컬 폴더 권한 획득 실패. 브라우저 제한으로 인해 ZIP 보관함으로 변환 후 다운로드로 대체 진행합니다.",
           "warning",
         );
         zip = new JSZip();
@@ -253,8 +300,8 @@ export class SvgToPngConverter extends LitElement {
       this.addLog("ZIP 가상 아카이브 빌드를 개시합니다.", "info");
     }
 
-    for (let i = 0; i < this.svgFiles.length; i++) {
-      const svgItem = this.svgFiles[i];
+    for (let i = 0; i < selectedFiles.length; i++) {
+      const svgItem = selectedFiles[i];
       svgItem.status = "processing";
       this.svgFiles = [...this.svgFiles];
 
@@ -279,8 +326,11 @@ export class SvgToPngConverter extends LitElement {
 
           if (isLocalDirMode && this.dirHandle) {
             let targetDirHandle: FileSystemDirectoryHandle;
-            if (hasSubFolder && outputDirHandle) {
-              targetDirHandle = outputDirHandle;
+            if (hasOutputDir && this.outputDirHandle) {
+              targetDirHandle = await this.getNestedDirHandle(
+                this.outputDirHandle,
+                svgItem.relativePath,
+              );
             } else {
               targetDirHandle = await this.getNestedDirHandle(
                 this.dirHandle,
@@ -295,10 +345,16 @@ export class SvgToPngConverter extends LitElement {
             await writable.write(imageBlob);
             await writable.close();
           } else if (zip) {
-            if (hasSubFolder) {
-              const zipFolderPath =
-                this.outputSubFolderName || "converted_images";
-              zip.folder(zipFolderPath)?.file(outputFileName, imageBlob);
+            if (hasOutputDir && this.outputDirHandle) {
+              const zipFolderPath = this.outputDirHandle.name;
+              const relativeParts = svgItem.relativePath.split("/");
+              relativeParts.pop(); // Remove filename
+              const zipPath = relativeParts.join("/");
+              if (zipPath) {
+                zip.folder(zipFolderPath)?.folder(zipPath)?.file(outputFileName, imageBlob);
+              } else {
+                zip.folder(zipFolderPath)?.file(outputFileName, imageBlob);
+              }
             } else {
               const relativeParts = svgItem.relativePath.split("/");
               relativeParts.pop(); // Remove filename
@@ -355,6 +411,7 @@ export class SvgToPngConverter extends LitElement {
 
       currentStep++;
       this.conversionProgress = Math.round((currentStep / totalSteps) * 100);
+      this.currentConversionIndex = currentStep;
       this.svgFiles = [...this.svgFiles];
     }
 
@@ -365,13 +422,14 @@ export class SvgToPngConverter extends LitElement {
 
         const link = document.createElement("a");
         link.href = URL.createObjectURL(content);
-        link.download = `${this.outputSubFolderName || "converted_images"}.zip`;
+        const zipName = this.outputDirHandle ? this.outputDirHandle.name : "converted_images";
+        link.download = `${zipName}.zip`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
 
         this.addLog(
-          `압축 파일 다운로드 완료: ${this.outputSubFolderName || "converted_images"}.zip`,
+          `압축 파일 다운로드 완료: ${zipName}.zip`,
           "success",
         );
       } catch (zipErr: any) {
@@ -391,8 +449,8 @@ export class SvgToPngConverter extends LitElement {
     if (successCount > 0) {
       let destinationText = "";
       if (isLocalDirMode) {
-        destinationText = hasSubFolder
-          ? `선택한 로컬 폴더 내의 '/${this.outputSubFolderName}' 경로에 직접 개별 이미지들이 저장되었습니다.`
+        destinationText = hasOutputDir && this.outputDirHandle
+          ? `지정한 출력 폴더 '${this.outputDirHandle.name}' 경로에 직접 개별 이미지들이 저장되었습니다.`
           : `선택한 로컬 폴더 내의 각 SVG 파일 위치에 직접 변환 이미지 파일들이 개별 저장되었습니다.`;
       } else {
         destinationText = `브라우저 제약(Safari/Firefox 등)으로 인해 이미지들이 가상 폴더 구조를 포함한 ZIP 다운로드로 제공되었습니다.`;
@@ -411,11 +469,38 @@ export class SvgToPngConverter extends LitElement {
     }
   }
 
+  private handleToggleFileSelected(e: CustomEvent<SvgFile>) {
+    const targetFile = e.detail;
+    this.svgFiles = this.svgFiles.map((file) =>
+      file.relativePath === targetFile.relativePath
+        ? { ...file, selected: !file.selected }
+        : file
+    );
+  }
+
+  private handleToggleAllFiles(e: CustomEvent<boolean>) {
+    const checked = e.detail;
+    this.svgFiles = this.svgFiles.map((file) => ({
+      ...file,
+      selected: checked,
+    }));
+  }
+
+  private handleDeleteFile(e: CustomEvent<SvgFile>) {
+    const fileToDelete = e.detail;
+    this.svgFiles = this.svgFiles.filter(
+      (file) => file.relativePath !== fileToDelete.relativePath
+    );
+    this.addLog(`대기열에서 제거됨: ${fileToDelete.name}`, "info");
+  }
+
   private resetAll() {
     this.dirHandle = null;
+    this.outputDirHandle = null;
     this.svgFiles = [];
     this.isConverting = false;
     this.conversionProgress = 0;
+    this.currentConversionIndex = 0;
     this.conversionLogs = [];
     this.addLog("데이터를 리셋하였습니다.", "info");
   }
@@ -458,7 +543,7 @@ export class SvgToPngConverter extends LitElement {
                   중인 브라우저는 로컬 디렉토리에 직접 새 이미지 파일을
                   저장하거나 원본 파일을 제어하는 최신 API를 완벽히 지원하지
                   않습니다. 대신, 변환이 끝난 파일들을 묶어
-                  <strong>${this.outputSubFolderName}.zip</strong> 압축파일
+                  <strong>${this.outputDirHandle ? this.outputDirHandle.name : "converted_images"}.zip</strong> 압축파일
                   형태로 일괄 안전하게 다운로드해 드립니다.
                 </div>
               </div>
@@ -476,22 +561,19 @@ export class SvgToPngConverter extends LitElement {
               .exportFormat="${this.exportFormat}"
               .selectedScale="${this.selectedScale}"
               .scaleOptions="${this.scaleOptions}"
-              .outputSubFolderName="${this.outputSubFolderName}"
+              .outputDirHandle="${this.outputDirHandle}"
               .deleteOriginal="${this.deleteOriginal}"
               .isConverting="${this.isConverting}"
               .conversionProgress="${this.conversionProgress}"
               @select-folder="${this.selectFolder}"
+              @select-output-folder="${this.selectOutputFolder}"
+              @reset-output-folder="${() => (this.outputDirHandle = null)}"
               @upload-files="${(e: CustomEvent) =>
                 this.handleFallbackUpload(e.detail)}"
               @change-format="${(e: CustomEvent<"png" | "jpg">) =>
                 (this.exportFormat = e.detail)}"
               @change-scale="${(e: CustomEvent<number>) =>
                 (this.selectedScale = e.detail)}"
-              @change-subfolder="${(e: CustomEvent<string>) =>
-                (this.outputSubFolderName = e.detail.replace(
-                  /[^a-zA-Z0-9_\-]/g,
-                  "",
-                ))}"
               @change-suffix="${(
                 e: CustomEvent<{ scale: number; suffix: string }>,
               ) => this.handleChangeSuffix(e.detail.scale, e.detail.suffix)}"
@@ -502,34 +584,14 @@ export class SvgToPngConverter extends LitElement {
 
           <!-- Right Real-Time Display & Logger Panel (cols-7) -->
           <div class="lg:col-span-7 space-y-6 flex flex-col">
-            <!-- Progress Indicator (Visible only during execution) -->
-            ${this.isConverting || this.conversionProgress > 0
-              ? html`
-                  <div
-                    class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl"
-                  >
-                    <div class="flex items-center justify-between mb-2">
-                      <span class="text-sm font-semibold text-white font-sans"
-                        >동작 수행 진행률</span
-                      >
-                      <span class="text-sm font-bold text-indigo-400 font-mono"
-                        >${this.conversionProgress}%</span
-                      >
-                    </div>
-                    <div
-                      class="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800"
-                    >
-                      <div
-                        class="bg-indigo-500 h-full transition-all duration-300"
-                        style="width: ${this.conversionProgress}%"
-                      ></div>
-                    </div>
-                  </div>
-                `
-              : ""}
-
             <!-- File List Queue -->
-            <file-queue .svgFiles="${this.svgFiles}"></file-queue>
+            <file-queue
+              .svgFiles="${this.svgFiles}"
+              .isConverting="${this.isConverting}"
+              @toggle-file-selected="${this.handleToggleFileSelected}"
+              @toggle-all-files="${this.handleToggleAllFiles}"
+              @delete-file="${this.handleDeleteFile}"
+            ></file-queue>
 
             <!-- Logs Console -->
             <log-console
@@ -542,53 +604,92 @@ export class SvgToPngConverter extends LitElement {
 
       <!-- Sticky Bottom Action Bar -->
       <div
-        class="fixed bottom-0 left-0 right-0 bg-slate-900/50 backdrop-blur-xl border-t border-white/5 py-5 px-6 z-40 shadow-[0_-8px_32px_rgba(0,0,0,0.5)]"
+        class="fixed bottom-0 left-0 right-0 bg-slate-900/60 backdrop-blur-xl border-t border-white/5 py-5 px-6 z-40 shadow-[0_-8px_32px_rgba(0,0,0,0.5)] transition-all duration-300"
       >
+        <!-- Full-width progress bar along the very top edge -->
+        ${this.isConverting || this.conversionProgress > 0
+          ? html`
+              <div class="absolute top-0 left-0 right-0 h-1 bg-slate-950/40 overflow-hidden">
+                <div
+                  class="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-500 transition-all duration-300 shadow-[0_0_8px_rgba(99,102,241,0.6)]"
+                  style="width: ${this.conversionProgress}%"
+                ></div>
+              </div>
+            `
+          : ""}
+
         <div
           class="max-w-7xl mx-auto w-full flex flex-col md:flex-row items-center justify-between gap-4"
         >
-          <div
-            class="flex flex-wrap items-center gap-4 text-xs md:text-sm text-slate-400 font-medium font-sans"
-          >
-            <div class="flex items-center gap-2">
-              <span
-                class="w-2.5 h-2.5 rounded-full ${this.svgFiles.length > 0
-                  ? "bg-indigo-500 animate-pulse"
-                  : "bg-slate-700"}"
-              ></span>
-              <span
-                >대기 파일:
-                <strong class="text-white"
-                  >${this.svgFiles.length}개</strong
-                ></span
-              >
-            </div>
-            <span class="text-slate-700 hidden md:inline">|</span>
-            <span
-              >내보내기 포맷:
-              <strong class="text-indigo-400 uppercase"
-                >${this.exportFormat}</strong
-              ></span
-            >
-            <span class="text-slate-700 hidden md:inline">|</span>
-            <span
-              >적용 배율:
-              <strong class="text-white font-mono"
-                >${this.selectedScale}x</strong
-              ></span
-            >
-            ${suffixTemplate}
-          </div>
+          <!-- Left side: dynamic info vs progress info -->
+          ${this.isConverting || this.conversionProgress > 0
+            ? html`
+                <div class="flex flex-wrap items-center gap-3 text-xs md:text-sm text-slate-300 font-sans font-medium">
+                  <div class="flex items-center gap-2">
+                    ${this.isConverting
+                      ? html`
+                          <span class="relative flex h-2.5 w-2.5">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-indigo-500"></span>
+                          </span>
+                          <span class="text-white font-semibold">배치 변환 진행 중...</span>
+                        `
+                      : html`
+                          <span class="inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
+                          <span class="text-emerald-400 font-bold">배치 변환 완료!</span>
+                        `}
+                  </div>
+                  <span class="text-slate-700">|</span>
+                  <span>진행률: <strong class="text-indigo-400 font-mono text-sm">${this.conversionProgress}%</strong></span>
+                  <span class="text-slate-700 hidden sm:inline">|</span>
+                  <span class="hidden sm:inline">
+                    완료: <strong class="text-emerald-400 font-mono">${this.currentConversionIndex}</strong> / ${this.svgFiles.filter(f => f.selected).length}
+                  </span>
+                </div>
+              `
+            : html`
+                <div
+                  class="flex flex-wrap items-center gap-4 text-xs md:text-sm text-slate-400 font-medium font-sans"
+                >
+                  <div class="flex items-center gap-2">
+                    <span
+                      class="w-2.5 h-2.5 rounded-full ${this.svgFiles.filter(f => f.selected).length > 0
+                        ? "bg-indigo-500 animate-pulse"
+                        : "bg-slate-700"}"
+                    ></span>
+                    <span>대기 파일:
+                      <strong class="text-white"
+                        >${this.svgFiles.filter(f => f.selected).length}개</strong>
+                      <span class="text-slate-500 font-normal">/ ${this.svgFiles.length}개</span>
+                    </span>
+                  </div>
+                  <span class="text-slate-700 hidden md:inline">|</span>
+                  <span
+                    >내보내기 포맷:
+                    <strong class="text-indigo-400 uppercase"
+                      >${this.exportFormat}</strong
+                    ></span
+                  >
+                  <span class="text-slate-700 hidden md:inline">|</span>
+                  <span
+                    >적용 배율:
+                    <strong class="text-white font-mono"
+                      >${this.selectedScale}x</strong
+                    ></span
+                  >
+                  ${suffixTemplate}
+                </div>
+              `}
 
           <button
             @click="${this.startConversion}"
-            ?disabled="${this.isConverting || this.svgFiles.length === 0}"
-            class="w-full md:w-auto px-10 py-3.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-600 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-indigo-500/20 active:scale-[0.98] text-white font-bold rounded-md transition-all flex items-center justify-center gap-3 cursor-pointer shadow-md font-sans text-sm shrink-0"
+            ?disabled="${this.isConverting || this.svgFiles.filter(f => f.selected).length === 0}"
+            class="w-full md:w-auto pl-14 pr-16 py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-600 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-indigo-500/20 active:scale-[0.98] text-white font-semibold rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-md shrink-0"
           >
             ${this.isConverting
               ? html`
                   <svg
-                    class="animate-spin h-5 w-5 text-white"
+                    class="animate-spin h-4 w-4 text-white"
                     fill="none"
                     viewBox="0 0 24 24"
                   >
@@ -606,11 +707,11 @@ export class SvgToPngConverter extends LitElement {
                       d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                     ></path>
                   </svg>
-                  <span>배치 변환 진행 중 (${this.conversionProgress}%)</span>
+                  <span>변환 중...</span>
                 `
               : html`
                   <i class="fa-solid fa-play"></i>
-                  <span>배치 ${this.exportFormat.toUpperCase()} 변환 시작</span>
+                  <span class="text-xl">변환 시작</span>
                 `}
           </button>
         </div>
@@ -629,6 +730,6 @@ export class SvgToPngConverter extends LitElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    "svg-to-png-converter": SvgToPngConverter;
+    "svg-to-batch-exporter": SvgToBatchExporter;
   }
 }

@@ -4,6 +4,7 @@ export interface SvgFile {
   relativePath: string;
   status: "pending" | "processing" | "success" | "error";
   errorMsg?: string;
+  selected?: boolean;
 }
 
 export interface ScaleOption {

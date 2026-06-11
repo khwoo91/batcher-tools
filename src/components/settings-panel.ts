@@ -11,7 +11,7 @@ export class SettingsPanel extends LitElement {
   @property({ type: String }) exportFormat: "png" | "jpg" = "png";
   @property({ type: Number }) selectedScale = 1;
   @property({ type: Array }) scaleOptions: ScaleOption[] = [];
-  @property({ type: String }) outputSubFolderName = "";
+  @property({ type: Object }) outputDirHandle: FileSystemDirectoryHandle | null = null;
   @property({ type: Boolean }) deleteOriginal = false;
   @property({ type: Boolean }) isConverting = false;
   @property({ type: Number }) conversionProgress = 0;
@@ -56,11 +56,19 @@ export class SettingsPanel extends LitElement {
     );
   }
 
-  private handleSubfolderChange(e: Event) {
-    const target = e.target as HTMLInputElement;
+  private handleSelectOutputFolder() {
     this.dispatchEvent(
-      new CustomEvent("change-subfolder", {
-        detail: target.value,
+      new CustomEvent("select-output-folder", {
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
+
+  private handleResetOutputFolder(e: Event) {
+    e.stopPropagation();
+    this.dispatchEvent(
+      new CustomEvent("reset-output-folder", {
         bubbles: true,
         composed: true,
       }),
@@ -308,24 +316,53 @@ export class SettingsPanel extends LitElement {
             <div>
               <label
                 class="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2"
-                >출력 하위 폴더 경로 이름</label
+                >내보낼 대상 폴더 (출력 경로)</label
               >
-              <div class="relative">
-                <span
-                  class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 text-sm"
-                >
-                  /
-                </span>
-                <input
-                  type="text"
-                  @input="${this.handleSubfolderChange}"
-                  ?disabled="${this.isConverting}"
-                  placeholder="경로 미지정시 원본 위치에 직접 생성"
-                  class="w-full pl-6 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-md text-slate-200 text-sm focus:outline-none focus:border-indigo-500 transition-colors font-sans"
-                />
-              </div>
-              <p class="text-[11px] text-slate-500 mt-1">
-                지정한 하위 폴더 안에 결과물이 생성됩니다.
+
+              ${this.apiSupported
+                ? html`
+                    <div class="space-y-3">
+                      ${this.outputDirHandle
+                        ? html`
+                            <div
+                              class="p-3 bg-indigo-950/20 border border-indigo-500/20 rounded-md text-xs flex items-center justify-between"
+                            >
+                              <div class="flex items-center gap-2 text-indigo-300">
+                                <i class="fa-regular fa-folder-open text-sm"></i>
+                                <span class="font-semibold truncate max-w-[200px]" title="${this.outputDirHandle.name}"
+                                  >${this.outputDirHandle.name}</span
+                                >
+                              </div>
+                              <button
+                                @click="${this.handleResetOutputFolder}"
+                                ?disabled="${this.isConverting}"
+                                class="text-slate-400 hover:text-rose-400 font-sans transition-colors cursor-pointer text-[11px] flex items-center gap-1 font-medium disabled:opacity-50"
+                              >
+                                <i class="fa-solid fa-xmark"></i> 해제
+                              </button>
+                            </div>
+                          `
+                        : html`
+                            <button
+                              @click="${this.handleSelectOutputFolder}"
+                              ?disabled="${this.isConverting}"
+                              class="w-full py-3 px-4 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 rounded-md border border-dashed border-slate-700 hover:border-indigo-500 transition-all flex items-center justify-center gap-2 cursor-pointer font-sans text-xs"
+                            >
+                              <i class="fa-regular fa-folder-open text-base text-indigo-400"></i>
+                              <span class="font-medium">출력 디렉토리(폴더) 지정</span>
+                            </button>
+                          `}
+                    </div>
+                  `
+                : html`
+                    <div class="p-3 bg-slate-950 rounded-md border border-slate-800 text-[11px] text-slate-500 font-sans">
+                      <i class="fa-solid fa-circle-info text-amber-500/80 mr-1"></i>
+                      브라우저 보안 제약으로 인해 개별 폴더 지정을 지원하지 않습니다.
+                      모든 변환 완료 시 한꺼번에 ZIP 압축파일로 받아보실 수 있습니다.
+                    </div>
+                  `}
+              <p class="text-[11px] text-slate-500 mt-2">
+                출력 폴더가 미지정된 경우 원본 SVG 파일 위치와 동일한 경로에 결과물이 개별 생성됩니다.
               </p>
             </div>
 
