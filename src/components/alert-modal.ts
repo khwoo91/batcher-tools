@@ -51,7 +51,7 @@ export class AlertModal extends LitElement {
               <h3 class="text-md font-bold text-white tracking-wide">알림 메시지</h3>
             </div>
             <div
-              class="text-xs text-slate-300 whitespace-pre-wrap leading-relaxed font-sans font-medium"
+              class="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed font-sans font-medium"
             >
               ${this.message}
             </div>
@@ -59,7 +59,7 @@ export class AlertModal extends LitElement {
           <div class="bg-slate-950/50 px-6 py-4 flex justify-end border-t border-white/5">
             <button
               @click="${this.handleClose}"
-              class="px-6 py-2.5 bg-linear-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white rounded-xl text-xs font-bold shadow-md hover:shadow-[0_0_15px_rgba(99,102,241,0.3)] active:scale-95 transition-all cursor-pointer font-sans"
+              class="px-6 py-2.5 bg-linear-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white rounded-xl text-sm font-bold shadow-md hover:shadow-[0_0_15px_rgba(99,102,241,0.3)] active:scale-95 transition-all cursor-pointer font-sans"
             >
               확인
             </button>

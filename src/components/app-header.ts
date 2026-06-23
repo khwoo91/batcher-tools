@@ -130,7 +130,7 @@ export class AppHeader extends LitElement {
             >
               배처(Batcher)
             </h1>
-            <p class="text-xs text-slate-400 font-medium tracking-wide">${desc}</p>
+            <p class="text-sm text-slate-400 font-medium tracking-wide">${desc}</p>
           </div>
         </div>
 
@@ -139,13 +139,13 @@ export class AppHeader extends LitElement {
           <div class="relative inline-block text-left w-[130px] custom-dropdown-container">
             <button
               @click="${() => (this.dropdownOpen = !this.dropdownOpen)}"
-              class="flex items-center justify-start w-full pl-9 pr-8 py-2.5 bg-slate-950/60 backdrop-blur-xl border border-white/5 hover:border-indigo-500/30 hover:bg-slate-900/60 text-slate-200 rounded-xl text-xs cursor-pointer focus:outline-none transition-all font-sans font-medium shadow-sm hover:shadow-[0_0_15px_rgba(99,102,241,0.1)] focus:border-indigo-500 select-none relative"
+              class="flex items-center justify-start w-full pl-9 pr-8 py-2.5 bg-slate-950/60 backdrop-blur-xl border border-white/5 hover:border-indigo-500/30 hover:bg-slate-900/60 text-slate-200 rounded-xl text-sm cursor-pointer focus:outline-none transition-all font-sans font-medium shadow-sm hover:shadow-[0_0_15px_rgba(99,102,241,0.1)] focus:border-indigo-500 select-none relative"
             >
               <div class="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
                 <i class="fa-solid fa-globe text-xs"></i>
               </div>
               <span>${this.lang === "ko" ? "한국어" : "English"}</span>
-              <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500 text-[10px]">
+              <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500 text-xs">
                 <i class="fa-solid fa-chevron-down transition-transform duration-200 ${this.dropdownOpen ? "rotate-180" : ""}"></i>
               </div>
             </button>
@@ -158,26 +158,26 @@ export class AppHeader extends LitElement {
                   >
                     <button
                       @click="${() => this.selectLanguage("ko")}"
-                      class="w-full pl-9 pr-3 py-2 text-xs font-bold transition-colors flex items-center justify-between cursor-pointer ${this
+                      class="w-full pl-9 pr-3 py-2 text-sm font-bold transition-colors flex items-center justify-between cursor-pointer ${this
                         .lang === "ko"
                         ? "text-indigo-400 bg-indigo-500/5"
                         : "text-slate-300 hover:bg-slate-800/40 hover:text-white"}"
                     >
                       <span>한국어</span>
                       <div class="w-3.5 flex items-center justify-center shrink-0">
-                        ${this.lang === "ko" ? html`<i class="fa-solid fa-check text-indigo-400 text-[10px]"></i>` : ""}
+                        ${this.lang === "ko" ? html`<i class="fa-solid fa-check text-indigo-400 text-xs"></i>` : ""}
                       </div>
                     </button>
                     <button
                       @click="${() => this.selectLanguage("en")}"
-                      class="w-full pl-9 pr-3 py-2 text-xs font-bold transition-colors flex items-center justify-between cursor-pointer ${this
+                      class="w-full pl-9 pr-3 py-2 text-sm font-bold transition-colors flex items-center justify-between cursor-pointer ${this
                         .lang === "en"
                         ? "text-indigo-400 bg-indigo-500/5"
                         : "text-slate-300 hover:bg-slate-800/40 hover:text-white"}"
                     >
                       <span>English</span>
                       <div class="w-3.5 flex items-center justify-center shrink-0">
-                        ${this.lang === "en" ? html`<i class="fa-solid fa-check text-indigo-400 text-[10px]"></i>` : ""}
+                        ${this.lang === "en" ? html`<i class="fa-solid fa-check text-indigo-400 text-xs"></i>` : ""}
                       </div>
                     </button>
                   </div>

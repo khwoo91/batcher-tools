@@ -40,13 +40,13 @@ export class LogConsole extends LitElement {
         </div>
           <button
             @click="${this.handleClearLogs}"
-            class="text-[12px] text-slate-500 hover:text-indigo-400 transition-colors uppercase tracking-widest font-sans font-bold cursor-pointer">
+            class="text-xs text-slate-500 hover:text-indigo-400 transition-colors uppercase tracking-widest font-sans font-bold cursor-pointer">
             ${clearBtnText}
           </button>
         </div>
 
         <div
-          class="flex-1 overflow-y-auto space-y-1.5 font-mono text-[10px] pr-1 leading-relaxed"
+          class="flex-1 overflow-y-auto space-y-1.5 font-mono text-xs pr-1 leading-relaxed"
         >
           ${this.conversionLogs.length === 0
         ? html`

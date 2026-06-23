@@ -249,7 +249,7 @@ export class AudioSettingsPanel extends LitElement {
               <i class="fa-solid fa-wand-magic-sparkles text-xs animate-pulse"></i>
               <span>${activeT.trySample}</span>
             </button>
-            <p class="text-[10px] text-slate-500 mt-1.5 text-center font-medium leading-relaxed">
+            <p class="text-xs text-slate-500 mt-1.5 text-center font-medium leading-relaxed">
               ${activeT.trySampleDesc}
             </p>
           </div>
@@ -268,7 +268,7 @@ export class AudioSettingsPanel extends LitElement {
           <div class="space-y-4">
             <!-- Bitrate selection (MP3 Quality) -->
             <div>
-              <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2.5">
+              <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2.5">
                 ${activeT.bitrateLabel}
               </label>
               <div class="grid grid-cols-2 gap-3">
@@ -287,7 +287,7 @@ export class AudioSettingsPanel extends LitElement {
                   `
                 )}
               </div>
-              <p class="text-[10px] text-slate-500 mt-2 font-medium tracking-wide leading-relaxed">
+              <p class="text-xs text-slate-500 mt-2 font-medium tracking-wide leading-relaxed">
                 ${activeT.bitrateDesc}
               </p>
             </div>
@@ -296,7 +296,7 @@ export class AudioSettingsPanel extends LitElement {
 
             <!-- Output Folder settings -->
             <div>
-              <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2.5">
+              <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2.5">
                 ${activeT.outputDirLabel}
               </label>
 
@@ -334,12 +334,12 @@ export class AudioSettingsPanel extends LitElement {
                     </div>
                   `
                 : html`
-                    <div class="p-3 bg-slate-950/40 rounded-xl border border-white/5 text-[11px] text-slate-500 font-sans leading-relaxed shadow-inner">
+                    <div class="p-3 bg-slate-950/40 rounded-xl border border-white/5 text-xs text-slate-500 font-sans leading-relaxed shadow-inner">
                       <i class="fa-solid fa-circle-info text-amber-500/80 mr-1"></i>
                       ${activeT.noOutputDirCompat}
                     </div>
                   `}
-              <p class="text-[10px] text-slate-500 mt-2 font-medium tracking-wide leading-relaxed">
+              <p class="text-xs text-slate-500 mt-2 font-medium tracking-wide leading-relaxed">
                 ${activeT.outputDirDesc}
               </p>
             </div>
@@ -356,7 +356,7 @@ export class AudioSettingsPanel extends LitElement {
                   @change="${this.handleToggleDelete}"
                   class="w-5 h-5 rounded-lg text-indigo-600 bg-slate-950 border-white/5 focus:ring-indigo-500 focus:ring-offset-slate-950 cursor-pointer mt-0.5"
                 />
-                <div class="text-xs">
+                <div class="text-sm">
                   <span class="font-bold text-slate-200 block">
                     ${activeT.deleteOriginalLabel}
                   </span>
@@ -368,7 +368,7 @@ export class AudioSettingsPanel extends LitElement {
 
               ${this.deleteOriginal && (!this.apiSupported || !this.dirHandle)
                 ? html`
-                    <div class="mt-2 text-[10px] text-rose-400 font-bold flex items-center gap-1.5 font-sans">
+                    <div class="mt-2 text-xs text-rose-400 font-bold flex items-center gap-1.5 font-sans">
                       <i class="fa-solid fa-circle-exclamation"></i>
                       <span>${activeT.deleteOriginalAlert}</span>
                     </div>

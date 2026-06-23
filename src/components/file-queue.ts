@@ -221,7 +221,7 @@ export class FileQueue extends LitElement {
                   <i class="${iconClass} text-lg shrink-0 transition-colors"></i>
                   <div class="min-w-0 flex-1">
                     <p class="font-bold ${file.selected ? 'text-slate-200' : 'text-slate-500 line-through decoration-slate-700'} truncate" title="${file.relativePath}">${file.name}</p>
-                    <p class="text-[10px] text-slate-500 font-mono mt-0.5">${this.formatSize(file.file.size)}</p>
+                    <p class="text-xs text-slate-500 font-mono mt-0.5">${this.formatSize(file.file.size)}</p>
                   </div>
                 </div>
 
@@ -230,22 +230,22 @@ export class FileQueue extends LitElement {
                   <div>
                     ${file.status === "pending"
                       ? html`
-                          <span class="px-2.5 py-0.5 ${file.selected ? 'bg-slate-900/80 text-slate-400 border-white/5' : 'bg-slate-950/80 text-slate-600 border-white/5'} border rounded-full text-[9px] font-bold tracking-wide transition-colors">${activeT.statusPending}</span>`
+                          <span class="px-2.5 py-0.5 ${file.selected ? 'bg-slate-900/80 text-slate-400 border-white/5' : 'bg-slate-950/80 text-slate-600 border-white/5'} border rounded-full text-[11px] font-bold tracking-wide transition-colors">${activeT.statusPending}</span>`
                       : ""}
                     ${file.status === "processing"
                       ? html`
-                          <span class="px-2.5 py-0.5 bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 rounded-full text-[9px] font-bold tracking-wide animate-pulse">${activeT.statusProcessing}</span>`
+                          <span class="px-2.5 py-0.5 bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 rounded-full text-[11px] font-bold tracking-wide animate-pulse">${activeT.statusProcessing}</span>`
                       : ""}
                     ${file.status === "success"
                       ? html`
-                          <span class="px-2.5 py-0.5 bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 rounded-full text-[9px] font-bold tracking-wide flex items-center gap-1 font-sans shadow-[0_0_10px_rgba(16,185,129,0.1)]">
-                            <i class="fa-solid fa-check text-[9px]"></i> ${activeT.statusSuccess}
+                          <span class="px-2.5 py-0.5 bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 rounded-full text-[11px] font-bold tracking-wide flex items-center gap-1 font-sans shadow-[0_0_10px_rgba(16,185,129,0.1)]">
+                            <i class="fa-solid fa-check text-[11px]"></i> ${activeT.statusSuccess}
                           </span>`
                       : ""}
                     ${file.status === "error"
                       ? html`
-                          <span class="px-2.5 py-0.5 bg-rose-500/10 text-rose-300 border border-rose-500/20 rounded-full text-[9px] font-bold tracking-wide flex items-center gap-1 shadow-[0_0_10px_rgba(244,63,94,0.1)]" title="${file.errorMsg || ""}">
-                            <i class="fa-solid fa-exclamation text-[9px]"></i> ${activeT.statusError}
+                          <span class="px-2.5 py-0.5 bg-rose-500/10 text-rose-300 border border-rose-500/20 rounded-full text-[11px] font-bold tracking-wide flex items-center gap-1 shadow-[0_0_10px_rgba(244,63,94,0.1)]" title="${file.errorMsg || ""}">
+                            <i class="fa-solid fa-exclamation text-[11px]"></i> ${activeT.statusError}
                           </span>`
                       : ""}
                   </div>
