@@ -126,11 +126,11 @@ export class AppHeader extends LitElement {
           </div>
           <div>
             <h1
-              class="text-2xl font-extrabold tracking-tight text-transparent bg-clip-text bg-linear-to-r from-white via-slate-100 to-indigo-200 flex items-center gap-2 font-sans"
+              class="text-xl font-extrabold tracking-tight text-transparent bg-clip-text bg-linear-to-r from-white via-slate-100 to-indigo-200 flex items-center gap-2 font-sans"
             >
               배처(Batcher)
             </h1>
-            <p class="text-sm text-slate-400 font-medium tracking-wide">${desc}</p>
+            <p class="text-xs text-slate-400 font-medium tracking-wide">${desc}</p>
           </div>
         </div>
 
@@ -139,7 +139,7 @@ export class AppHeader extends LitElement {
           <div class="relative inline-block text-left w-32.5 custom-dropdown-container">
             <button
               @click="${() => (this.dropdownOpen = !this.dropdownOpen)}"
-              class="flex items-center justify-start w-full pl-9 pr-8 py-2.5 bg-slate-950/60 backdrop-blur-xl border border-white/5 hover:border-indigo-500/30 hover:bg-slate-900/60 text-slate-200 rounded-xl text-sm cursor-pointer focus:outline-none transition-all font-sans font-medium shadow-sm hover:shadow-[0_0_15px_rgba(99,102,241,0.1)] focus:border-indigo-500 select-none relative"
+              class="flex items-center justify-start w-full pl-9 pr-8 py-2.5 bg-slate-950/60 backdrop-blur-xl border border-white/5 hover:border-indigo-500/30 hover:bg-slate-900/60 text-slate-200 rounded-xl text-xs cursor-pointer focus:outline-none transition-all font-sans font-medium shadow-sm hover:shadow-[0_0_15px_rgba(99,102,241,0.1)] focus:border-indigo-500 select-none relative"
             >
               <div class="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
                 <i class="fa-solid fa-globe text-xs"></i>
@@ -158,7 +158,7 @@ export class AppHeader extends LitElement {
                   >
                     <button
                       @click="${() => this.selectLanguage("ko")}"
-                      class="w-full pl-9 pr-3 py-2 text-sm font-bold transition-colors flex items-center justify-between cursor-pointer ${this
+                      class="w-full pl-5 pr-3 py-2 text-xs font-semibold transition-colors flex items-center justify-between cursor-pointer ${this
                         .lang === "ko"
                         ? "text-indigo-400 bg-indigo-500/5"
                         : "text-slate-300 hover:bg-slate-800/40 hover:text-white"}"
@@ -170,7 +170,7 @@ export class AppHeader extends LitElement {
                     </button>
                     <button
                       @click="${() => this.selectLanguage("en")}"
-                      class="w-full pl-9 pr-3 py-2 text-sm font-bold transition-colors flex items-center justify-between cursor-pointer ${this
+                      class="w-full pl-5 pr-3 py-2 text-xs font-semibold transition-colors flex items-center justify-between cursor-pointer ${this
                         .lang === "en"
                         ? "text-indigo-400 bg-indigo-500/5"
                         : "text-slate-300 hover:bg-slate-800/40 hover:text-white"}"

@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://svgbatcher.com/sitemap.xml
+Sitemap: https://batchertools.com/sitemap.xml

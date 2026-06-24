@@ -1,20 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://svgbatcher.com/</loc>
-    <lastmod>2026-06-15</lastmod>
+    <loc>https://batchertools.com/</loc>
+    <lastmod>2026-06-24</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://svgbatcher.com/privacy.html</loc>
-    <lastmod>2026-06-15</lastmod>
+    <loc>https://batchertools.com/privacy.html</loc>
+    <lastmod>2026-06-24</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://svgbatcher.com/terms.html</loc>
-    <lastmod>2026-06-15</lastmod>
+    <loc>https://batchertools.com/terms.html</loc>
+    <lastmod>2026-06-24</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
